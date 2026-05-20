@@ -1,0 +1,316 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import api from './api';
+
+const emptyApplication = {
+  companyName: '',
+  jobTitle: '',
+  location: '',
+  jobType: 'Full Time',
+  status: 'APPLIED',
+  appliedDate: new Date().toISOString().slice(0, 10),
+  notes: ''
+};
+
+const emptyInterview = {
+  applicationId: '',
+  round: '',
+  interviewDate: '',
+  mode: 'Online',
+  notes: ''
+};
+
+function App() {
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      return null;
+    }
+  });
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
+  const [applications, setApplications] = useState([]);
+  const [interviews, setInterviews] = useState([]);
+  const [stats, setStats] = useState({ total: 0, applied: 0, interview: 0, offer: 0, rejected: 0 });
+  const [applicationForm, setApplicationForm] = useState(emptyApplication);
+  const [interviewForm, setInterviewForm] = useState(emptyInterview);
+  const [editingId, setEditingId] = useState(null);
+  const [filter, setFilter] = useState('ALL');
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  const filteredApplications = useMemo(() => {
+    if (filter === 'ALL') return applications;
+    return applications.filter((app) => app.status === filter);
+  }, [applications, filter]);
+
+  async function loadData() {
+    try {
+      const [appsRes, interviewsRes, statsRes] = await Promise.all([
+        api.get('/applications'),
+        api.get('/interviews'),
+        api.get('/dashboard/stats')
+      ]);
+      setApplications(appsRes.data);
+      setInterviews(interviewsRes.data);
+      setStats(statsRes.data);
+      setMessage('');
+    } catch {
+      setMessage('Backend is not running or your login session expired. Start Spring Boot and login again.');
+    }
+  }
+
+  async function handleAuth(event) {
+    event.preventDefault();
+    setMessage('');
+    try {
+      const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
+      const payload = authMode === 'login'
+        ? { email: authForm.email, password: authForm.password }
+        : authForm;
+      const response = await api.post(endpoint, payload);
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify({ name: response.data.name, email: response.data.email }));
+      setUser({ name: response.data.name, email: response.data.email });
+    } catch (error) {
+      setMessage(error.response?.data || 'Authentication failed');
+    }
+  }
+
+  async function saveApplication(event) {
+    event.preventDefault();
+    if (editingId) {
+      await api.put(`/applications/${editingId}`, applicationForm);
+      setEditingId(null);
+    } else {
+      await api.post('/applications', applicationForm);
+    }
+    setApplicationForm(emptyApplication);
+    await loadData();
+  }
+
+  function editApplication(app) {
+    setEditingId(app.id);
+    setApplicationForm({
+      companyName: app.companyName || '',
+      jobTitle: app.jobTitle || '',
+      location: app.location || '',
+      jobType: app.jobType || 'Full Time',
+      status: app.status || 'APPLIED',
+      appliedDate: app.appliedDate || new Date().toISOString().slice(0, 10),
+      notes: app.notes || ''
+    });
+  }
+
+  async function deleteApplication(id) {
+    await api.delete(`/applications/${id}`);
+    await loadData();
+  }
+
+  async function saveInterview(event) {
+    event.preventDefault();
+    const payload = {
+      ...interviewForm,
+      interviewDate: interviewForm.interviewDate ? `${interviewForm.interviewDate}:00` : null
+    };
+    await api.post('/interviews', payload);
+    setInterviewForm(emptyInterview);
+    await loadData();
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setApplications([]);
+    setInterviews([]);
+  }
+
+  if (!user) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-panel">
+          <h1>CareerTrack</h1>
+          <p className="text-secondary">Track job applications, interviews, and offers in one place.</p>
+
+          <div className="btn-group w-100 mb-3">
+            <button className={`btn ${authMode === 'login' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => setAuthMode('login')}>
+              Login
+            </button>
+            <button className={`btn ${authMode === 'register' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => setAuthMode('register')}>
+              Register
+            </button>
+          </div>
+
+          <form onSubmit={handleAuth}>
+            {authMode === 'register' && (
+              <input className="form-control mb-3" placeholder="Name" value={authForm.name}
+                onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })} />
+            )}
+            <input className="form-control mb-3" type="email" placeholder="Email" value={authForm.email}
+              onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} />
+            <input className="form-control mb-3" type="password" placeholder="Password" value={authForm.password}
+              onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} />
+            {message && <div className="alert alert-danger py-2">{message}</div>}
+            <button className="btn btn-primary w-100" type="submit">
+              {authMode === 'login' ? 'Login' : 'Create Account'}
+            </button>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main>
+      <nav className="navbar navbar-dark bg-dark">
+        <div className="container">
+          <span className="navbar-brand mb-0 h1">CareerTrack</span>
+          <div className="d-flex align-items-center gap-3 text-white">
+            <span>{user.name}</span>
+            <button className="btn btn-outline-light btn-sm" onClick={logout}>Logout</button>
+          </div>
+        </div>
+      </nav>
+
+      <div className="container py-4">
+        {message && <div className="alert alert-warning">{message}</div>}
+
+        <section className="stats-grid mb-4">
+          <Stat label="Total" value={stats.total} />
+          <Stat label="Applied" value={stats.applied} />
+          <Stat label="Interview" value={stats.interview} />
+          <Stat label="Offer" value={stats.offer} />
+          <Stat label="Rejected" value={stats.rejected} />
+        </section>
+
+        <div className="row g-4">
+          <section className="col-lg-5">
+            <div className="panel">
+              <h2>{editingId ? 'Edit Application' : 'Add Application'}</h2>
+              <form onSubmit={saveApplication}>
+                <input className="form-control mb-2" placeholder="Company name" value={applicationForm.companyName}
+                  onChange={(e) => setApplicationForm({ ...applicationForm, companyName: e.target.value })} required />
+                <input className="form-control mb-2" placeholder="Job title" value={applicationForm.jobTitle}
+                  onChange={(e) => setApplicationForm({ ...applicationForm, jobTitle: e.target.value })} required />
+                <input className="form-control mb-2" placeholder="Location" value={applicationForm.location}
+                  onChange={(e) => setApplicationForm({ ...applicationForm, location: e.target.value })} />
+                <select className="form-select mb-2" value={applicationForm.jobType}
+                  onChange={(e) => setApplicationForm({ ...applicationForm, jobType: e.target.value })}>
+                  <option>Full Time</option>
+                  <option>Internship</option>
+                  <option>Contract</option>
+                  <option>Remote</option>
+                </select>
+                <select className="form-select mb-2" value={applicationForm.status}
+                  onChange={(e) => setApplicationForm({ ...applicationForm, status: e.target.value })}>
+                  <option value="APPLIED">Applied</option>
+                  <option value="INTERVIEW">Interview</option>
+                  <option value="OFFER">Offer</option>
+                  <option value="REJECTED">Rejected</option>
+                </select>
+                <input className="form-control mb-2" type="date" value={applicationForm.appliedDate}
+                  onChange={(e) => setApplicationForm({ ...applicationForm, appliedDate: e.target.value })} />
+                <textarea className="form-control mb-3" placeholder="Notes" value={applicationForm.notes}
+                  onChange={(e) => setApplicationForm({ ...applicationForm, notes: e.target.value })} />
+                <button className="btn btn-primary w-100" type="submit">
+                  {editingId ? 'Update Application' : 'Add Application'}
+                </button>
+              </form>
+            </div>
+
+            <div className="panel mt-4">
+              <h2>Add Interview</h2>
+              <form onSubmit={saveInterview}>
+                <select className="form-select mb-2" value={interviewForm.applicationId}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, applicationId: e.target.value })} required>
+                  <option value="">Select application</option>
+                  {applications.map((app) => (
+                    <option key={app.id} value={app.id}>{app.companyName} - {app.jobTitle}</option>
+                  ))}
+                </select>
+                <input className="form-control mb-2" placeholder="Round" value={interviewForm.round}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, round: e.target.value })} required />
+                <input className="form-control mb-2" type="datetime-local" value={interviewForm.interviewDate}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, interviewDate: e.target.value })} required />
+                <select className="form-select mb-2" value={interviewForm.mode}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, mode: e.target.value })}>
+                  <option>Online</option>
+                  <option>Offline</option>
+                  <option>Phone</option>
+                </select>
+                <textarea className="form-control mb-3" placeholder="Interview notes" value={interviewForm.notes}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, notes: e.target.value })} />
+                <button className="btn btn-outline-primary w-100" type="submit">Add Interview</button>
+              </form>
+            </div>
+          </section>
+
+          <section className="col-lg-7">
+            <div className="panel">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h2>Applications</h2>
+                <select className="form-select filter-select" value={filter} onChange={(e) => setFilter(e.target.value)}>
+                  <option value="ALL">All</option>
+                  <option value="APPLIED">Applied</option>
+                  <option value="INTERVIEW">Interview</option>
+                  <option value="OFFER">Offer</option>
+                  <option value="REJECTED">Rejected</option>
+                </select>
+              </div>
+
+              <div className="application-list">
+                {filteredApplications.map((app) => (
+                  <article className="application-card" key={app.id}>
+                    <div>
+                      <h3>{app.companyName}</h3>
+                      <p>{app.jobTitle} - {app.location || 'Location not added'}</p>
+                      <span className={`status ${app.status.toLowerCase()}`}>{app.status}</span>
+                    </div>
+                    <div className="text-end">
+                      <p className="small text-secondary mb-2">{app.appliedDate}</p>
+                      <button className="btn btn-sm btn-outline-dark me-2" onClick={() => editApplication(app)}>Edit</button>
+                      <button className="btn btn-sm btn-outline-danger" onClick={() => deleteApplication(app.id)}>Delete</button>
+                    </div>
+                  </article>
+                ))}
+                {filteredApplications.length === 0 && <p className="text-secondary mb-0">No applications found.</p>}
+              </div>
+            </div>
+
+            <div className="panel mt-4">
+              <h2>Interviews</h2>
+              {interviews.map((interview) => (
+                <article className="interview-row" key={interview.id}>
+                  <strong>{interview.round}</strong>
+                  <span>{new Date(interview.interviewDate).toLocaleString()}</span>
+                  <span>{interview.mode}</span>
+                </article>
+              ))}
+              {interviews.length === 0 && <p className="text-secondary mb-0">No interviews scheduled.</p>}
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <article className="stat-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </article>
+  );
+}
+
+export default App;
