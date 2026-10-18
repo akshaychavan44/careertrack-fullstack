@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import api from './api';
+import api, { errorMessage } from './api';
 
 const emptyApplication = {
   companyName: '',
@@ -23,7 +23,8 @@ function App() {
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem('user');
-      return saved ? JSON.parse(saved) : null;
+      const token = localStorage.getItem('token');
+      return saved && token ? JSON.parse(saved) : null;
     } catch {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
@@ -40,6 +41,7 @@ function App() {
   const [editingId, setEditingId] = useState(null);
   const [filter, setFilter] = useState('ALL');
   const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -63,38 +65,44 @@ function App() {
       setInterviews(interviewsRes.data);
       setStats(statsRes.data);
       setMessage('');
-    } catch {
-      setMessage('Backend is not running or your login session expired. Start Spring Boot and login again.');
+    } catch (error) {
+      if ([401, 403].includes(error.response?.status)) logout();
+      setMessage(errorMessage(error));
     }
   }
 
   async function handleAuth(event) {
     event.preventDefault();
     setMessage('');
+    setBusy(true);
     try {
       const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
       const payload = authMode === 'login'
-        ? { email: authForm.email, password: authForm.password }
-        : authForm;
+        ? { email: authForm.email.trim(), password: authForm.password }
+        : { ...authForm, name: authForm.name.trim(), email: authForm.email.trim() };
       const response = await api.post(endpoint, payload);
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify({ name: response.data.name, email: response.data.email }));
       setUser({ name: response.data.name, email: response.data.email });
     } catch (error) {
-      setMessage(error.response?.data || 'Authentication failed');
+      setMessage(errorMessage(error));
+    } finally {
+      setBusy(false);
     }
   }
 
   async function saveApplication(event) {
     event.preventDefault();
-    if (editingId) {
-      await api.put(`/applications/${editingId}`, applicationForm);
-      setEditingId(null);
-    } else {
-      await api.post('/applications', applicationForm);
-    }
-    setApplicationForm(emptyApplication);
-    await loadData();
+    try {
+      if (editingId) {
+        await api.put(`/applications/${editingId}`, applicationForm);
+        setEditingId(null);
+      } else {
+        await api.post('/applications', applicationForm);
+      }
+      setApplicationForm(emptyApplication);
+      await loadData();
+    } catch (error) { handleError(error); }
   }
 
   function editApplication(app) {
@@ -111,19 +119,28 @@ function App() {
   }
 
   async function deleteApplication(id) {
-    await api.delete(`/applications/${id}`);
-    await loadData();
+    try {
+      await api.delete(`/applications/${id}`);
+      await loadData();
+    } catch (error) { handleError(error); }
   }
 
   async function saveInterview(event) {
     event.preventDefault();
-    const payload = {
-      ...interviewForm,
-      interviewDate: interviewForm.interviewDate ? `${interviewForm.interviewDate}:00` : null
-    };
-    await api.post('/interviews', payload);
-    setInterviewForm(emptyInterview);
-    await loadData();
+    try {
+      const payload = {
+        ...interviewForm,
+        interviewDate: interviewForm.interviewDate ? `${interviewForm.interviewDate}:00` : null
+      };
+      await api.post('/interviews', payload);
+      setInterviewForm(emptyInterview);
+      await loadData();
+    } catch (error) { handleError(error); }
+  }
+
+  function handleError(error) {
+    if ([401, 403].includes(error.response?.status)) logout();
+    setMessage(errorMessage(error));
   }
 
   function logout() {
@@ -132,6 +149,12 @@ function App() {
     setUser(null);
     setApplications([]);
     setInterviews([]);
+    setStats({ total: 0, applied: 0, interview: 0, offer: 0, rejected: 0 });
+    setMessage('');
+    setEditingId(null);
+    setApplicationForm(emptyApplication);
+    setInterviewForm(emptyInterview);
+    setFilter('ALL');
   }
 
   if (!user) {
@@ -152,16 +175,16 @@ function App() {
 
           <form onSubmit={handleAuth}>
             {authMode === 'register' && (
-              <input className="form-control mb-3" placeholder="Name" value={authForm.name}
+              <input className="form-control mb-3" placeholder="Name" aria-label="Name" required value={authForm.name}
                 onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })} />
             )}
-            <input className="form-control mb-3" type="email" placeholder="Email" value={authForm.email}
+            <input className="form-control mb-3" type="email" placeholder="Email" aria-label="Email" required value={authForm.email}
               onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} />
-            <input className="form-control mb-3" type="password" placeholder="Password" value={authForm.password}
+            <input className="form-control mb-3" type="password" placeholder="Password" aria-label="Password" required value={authForm.password}
               onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} />
             {message && <div className="alert alert-danger py-2">{message}</div>}
-            <button className="btn btn-primary w-100" type="submit">
-              {authMode === 'login' ? 'Login' : 'Create Account'}
+            <button className="btn btn-primary w-100" type="submit" disabled={busy}>
+              {busy ? 'Please wait…' : authMode === 'login' ? 'Login' : 'Create Account'}
             </button>
           </form>
         </section>

@@ -24,24 +24,34 @@ public class JwtAuthFilter extends OncePerRequestFilter {
   @Override
   protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
+    if (request.getServletPath().startsWith("/api/auth/") || "OPTIONS".equals(request.getMethod())) {
+      filterChain.doFilter(request, response);
+      return;
+    }
     String header = request.getHeader("Authorization");
     if (header == null || !header.startsWith("Bearer ")) {
       filterChain.doFilter(request, response);
       return;
     }
 
-    String token = header.substring(7);
-    String email = jwtService.extractUsername(token);
+    try {
+      String token = header.substring(7);
+      String email = jwtService.extractUsername(token);
 
-    if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-      var userDetails = userDetailsService.loadUserByUsername(email);
-      if (jwtService.isTokenValid(token, userDetails)) {
-        var authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-        SecurityContextHolder.getContext().setAuthentication(authToken);
+      if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        var userDetails = userDetailsService.loadUserByUsername(email);
+        if (jwtService.isTokenValid(token, userDetails)) {
+          var authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+          authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+          SecurityContextHolder.getContext().setAuthentication(authToken);
+        }
       }
+    } catch (io.jsonwebtoken.JwtException | IllegalArgumentException
+        | org.springframework.security.core.userdetails.UsernameNotFoundException ex) {
+      SecurityContextHolder.clearContext();
+      response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session expired or invalid. Please log in again.");
+      return;
     }
-
     filterChain.doFilter(request, response);
   }
 }
