@@ -7,6 +7,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+  @ExceptionHandler(com.careertrack.service.JewelerProfileException.class)
+  public ResponseEntity<?> jewelerProfile(com.careertrack.service.JewelerProfileException exception) {
+    return ResponseEntity.status(502).body(Map.of("message", exception.getMessage()));
+  }
+
   @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
   public ResponseEntity<?> authentication() {
     return ResponseEntity.status(401).body(Map.of("message", "Email or password is incorrect."));

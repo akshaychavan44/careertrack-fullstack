@@ -12,6 +12,13 @@ public class User {
   @Indexed(unique = true)
   private String email;
   private String password;
+  private String storeName;
+  private boolean jewelerProfileCreated;
+
+  public String getStoreName() { return storeName; }
+  public void setStoreName(String storeName) { this.storeName = storeName; }
+  public boolean isJewelerProfileCreated() { return jewelerProfileCreated; }
+  public void setJewelerProfileCreated(boolean jewelerProfileCreated) { this.jewelerProfileCreated = jewelerProfileCreated; }
 
   public String getId() { return id; }
   public void setId(String id) { this.id = id; }

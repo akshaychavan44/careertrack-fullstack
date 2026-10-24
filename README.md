@@ -71,6 +71,30 @@ Frontend URL:
 http://localhost:5173
 ```
 
+## Jeweller profile integration
+
+The login form requires a store name. After authentication, the backend posts only
+`storeName` and the authenticated user's `email` to the jeweller API. Configure
+`JEWELER_API_KEY` as a secret environment variable on the backend hosting service
+(Render), then redeploy. Never put the key in a `VITE_` variable or commit it.
+`JEWELER_API_URL` optionally overrides the default endpoint:
+`https://jewelry-one-ebon.vercel.app/api/v1/jewelers`.
+
+Successful creation saves the store name and a creation flag in MongoDB. Later
+logins skip the external request. API failures keep the login form open for retry;
+HTTP 409 requires the administrator to link the existing profile. Registration
+continues to create only a CareerTrack account; profile creation happens on login.
+
+The saved flag prevents repeat requests after a confirmed success. Exactly-once
+creation across multiple backend instances or a timeout after remote creation
+requires idempotency support from the external API; its contract does not specify
+that support.
+
+Run backend checks with `mvn test`, frontend checks with `npm run build`, and the
+deployment checks with `API_URL` set to the backend `/api` URL and
+`CHECK_AUTH_ERRORS=true` using `node scripts/smoke-test.mjs`. The smoke check creates
+a clearly named test jeweller profile when logging in with a new test account.
+
 ## Resume Line
 
 Built CareerTrack, a full-stack job application tracker using React.js, Spring Boot, Spring Security, JWT, and MongoDB to manage job applications, interview schedules, application statuses, and dashboard analytics.

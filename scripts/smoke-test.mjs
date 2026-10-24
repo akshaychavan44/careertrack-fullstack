@@ -23,6 +23,7 @@ async function request(path, method = 'GET', body, expected = 200, authenticated
 if (!process.env.TEST_ACCOUNT_FILE) {
   token = (await request('/auth/register', 'POST', credentials, 200, false)).token;
 }
+credentials.storeName ||= 'CareerTrack Integration Test Jewellers';
 token = (await request('/auth/login', 'POST', credentials, 200, false)).token;
 assert.ok(token);
 const applicationBody = { companyName: 'Smoke Test Company', jobTitle: 'Test Engineer', location: 'Remote',

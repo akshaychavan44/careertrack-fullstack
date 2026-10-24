@@ -1,8 +1,21 @@
 package com.careertrack.dto;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class LoginRequest {
+  @Email
+  @NotBlank
   private String email;
+  @NotBlank
   private String password;
+  @NotBlank
+  @Size(max = 200)
+  private String storeName;
+
+  public String getStoreName() { return storeName; }
+  public void setStoreName(String storeName) { this.storeName = storeName; }
 
   public String getEmail() { return email; }
   public void setEmail(String email) { this.email = email; }

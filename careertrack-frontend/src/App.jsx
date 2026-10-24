@@ -32,7 +32,7 @@ function App() {
     }
   });
   const [authMode, setAuthMode] = useState('login');
-  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
+  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', storeName: '' });
   const [applications, setApplications] = useState([]);
   const [interviews, setInterviews] = useState([]);
   const [stats, setStats] = useState({ total: 0, applied: 0, interview: 0, offer: 0, rejected: 0 });
@@ -78,8 +78,8 @@ function App() {
     try {
       const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
       const payload = authMode === 'login'
-        ? { email: authForm.email.trim(), password: authForm.password }
-        : { ...authForm, name: authForm.name.trim(), email: authForm.email.trim() };
+        ? { email: authForm.email.trim(), password: authForm.password, storeName: authForm.storeName.trim() }
+        : { name: authForm.name.trim(), email: authForm.email.trim(), password: authForm.password };
       const response = await api.post(endpoint, payload);
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify({ name: response.data.name, email: response.data.email }));
@@ -177,6 +177,16 @@ function App() {
             {authMode === 'register' && (
               <input className="form-control mb-3" placeholder="Name" aria-label="Name" required value={authForm.name}
                 onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })} />
+            )}
+            {authMode === 'login' && (
+              <div className="mb-3">
+                <label className="form-label" htmlFor="storeName">Store Name</label>
+                <input id="storeName" className="form-control" placeholder="Your jewellery store" required maxLength={200}
+                  value={authForm.storeName} pattern=".*\S.*" autoComplete="organization"
+                  onChange={(e) => setAuthForm({ ...authForm, storeName: e.target.value })}
+                  aria-describedby="storeNameHelp" />
+                <div id="storeNameHelp" className="form-text">Logging in creates your jeweller profile using your store name and email.</div>
+              </div>
             )}
             <input className="form-control mb-3" type="email" placeholder="Email" aria-label="Email" required value={authForm.email}
               onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} />

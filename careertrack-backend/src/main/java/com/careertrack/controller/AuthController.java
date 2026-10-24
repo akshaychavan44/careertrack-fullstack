@@ -16,6 +16,7 @@ import com.careertrack.repository.UserRepository;
 import com.careertrack.security.CustomUserDetailsService;
 import com.careertrack.security.JwtService;
 import jakarta.validation.Valid;
+import com.careertrack.service.JewelerProfileService;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -25,14 +26,17 @@ public class AuthController {
   private final AuthenticationManager authenticationManager;
   private final CustomUserDetailsService userDetailsService;
   private final JwtService jwtService;
+  private final JewelerProfileService jewelerProfileService;
 
   public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder,
-      AuthenticationManager authenticationManager, CustomUserDetailsService userDetailsService, JwtService jwtService) {
+      AuthenticationManager authenticationManager, CustomUserDetailsService userDetailsService, JwtService jwtService,
+      JewelerProfileService jewelerProfileService) {
     this.userRepository = userRepository;
     this.passwordEncoder = passwordEncoder;
     this.authenticationManager = authenticationManager;
     this.userDetailsService = userDetailsService;
     this.jwtService = jwtService;
+    this.jewelerProfileService = jewelerProfileService;
   }
 
   @PostMapping("/register")
@@ -53,10 +57,11 @@ public class AuthController {
   }
 
   @PostMapping("/login")
-  public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
+  public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
     authenticationManager.authenticate(
         new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
     User user = userRepository.findByEmail(request.getEmail()).orElseThrow();
+    jewelerProfileService.ensureProfile(user, request.getStoreName().trim());
     var userDetails = userDetailsService.loadUserByUsername(user.getEmail());
     String token = jwtService.generateToken(userDetails);
     return ResponseEntity.ok(new AuthResponse(token, user.getName(), user.getEmail()));
