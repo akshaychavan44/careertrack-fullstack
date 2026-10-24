@@ -78,8 +78,8 @@ function App() {
     try {
       const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
       const payload = authMode === 'login'
-        ? { email: authForm.email.trim(), password: authForm.password, storeName: authForm.storeName.trim() }
-        : { name: authForm.name.trim(), email: authForm.email.trim(), password: authForm.password };
+        ? { email: authForm.email.trim(), password: authForm.password }
+        : { name: authForm.name.trim(), email: authForm.email.trim(), password: authForm.password, storeName: authForm.storeName.trim() };
       const response = await api.post(endpoint, payload);
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify({ name: response.data.name, email: response.data.email }));
@@ -178,14 +178,14 @@ function App() {
               <input className="form-control mb-3" placeholder="Name" aria-label="Name" required value={authForm.name}
                 onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })} />
             )}
-            {authMode === 'login' && (
+            {authMode === 'register' && (
               <div className="mb-3">
                 <label className="form-label" htmlFor="storeName">Store Name</label>
                 <input id="storeName" className="form-control" placeholder="Your jewellery store" required maxLength={200}
                   value={authForm.storeName} pattern=".*\S.*" autoComplete="organization"
                   onChange={(e) => setAuthForm({ ...authForm, storeName: e.target.value })}
                   aria-describedby="storeNameHelp" />
-                <div id="storeNameHelp" className="form-text">Logging in creates your jeweller profile using your store name and email.</div>
+                <div id="storeNameHelp" className="form-text">Creating your account also creates your jeweller profile using your store name and email.</div>
               </div>
             )}
             <input className="form-control mb-3" type="email" placeholder="Email" aria-label="Email" required value={authForm.email}

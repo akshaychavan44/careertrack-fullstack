@@ -20,11 +20,12 @@ async function request(path, method = 'GET', body, expected = 200, authenticated
   console.log(`PASS ${method} ${path} (${response.status})`);
   return text ? JSON.parse(text) : null;
 }
+credentials.storeName ||= 'CareerTrack Registration Test Jewellers';
 if (!process.env.TEST_ACCOUNT_FILE) {
   token = (await request('/auth/register', 'POST', credentials, 200, false)).token;
 }
-credentials.storeName ||= 'CareerTrack Integration Test Jewellers';
-token = (await request('/auth/login', 'POST', credentials, 200, false)).token;
+const loginCredentials = { email: credentials.email, password: credentials.password };
+token = (await request('/auth/login', 'POST', loginCredentials, 200, false)).token;
 assert.ok(token);
 const applicationBody = { companyName: 'Smoke Test Company', jobTitle: 'Test Engineer', location: 'Remote',
   jobType: 'Full Time', status: 'APPLIED', appliedDate: '2026-10-18', notes: 'Automated deployment check' };
@@ -48,11 +49,11 @@ try {
 }
 assert.ok(!(await request('/applications')).some(item => item.id === application?.id));
 if (process.env.CHECK_AUTH_ERRORS === 'true') {
-  await request('/auth/login', 'POST', { ...credentials, password: 'wrong-password' }, 401, false);
+  await request('/auth/login', 'POST', { ...loginCredentials, password: 'wrong-password' }, 401, false);
   await request('/applications', 'GET', undefined, 401, false);
   token = 'invalid-token';
   await request('/applications', 'GET', undefined, 401);
   // Public login must still work when a browser has an old token.
-  await request('/auth/login', 'POST', credentials);
+  await request('/auth/login', 'POST', loginCredentials);
 }
 console.log('All smoke checks passed; application and interview test records removed.');

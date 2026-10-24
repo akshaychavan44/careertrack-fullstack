@@ -73,17 +73,18 @@ http://localhost:5173
 
 ## Jeweller profile integration
 
-The login form requires a store name. After authentication, the backend posts only
-`storeName` and the authenticated user's `email` to the jeweller API. Configure
+The registration form requires a store name. When a new user registers, the backend posts only
+`storeName` and the new user's `email` to the jeweller API. Configure
 `JEWELER_API_KEY` as a secret environment variable on the backend hosting service
 (Render), then redeploy. Never put the key in a `VITE_` variable or commit it.
 `JEWELER_API_URL` optionally overrides the default endpoint:
 `https://jewelry-one-ebon.vercel.app/api/v1/jewelers`.
 
-Successful creation saves the store name and a creation flag in MongoDB. Later
-logins skip the external request. API failures keep the login form open for retry;
-HTTP 409 requires the administrator to link the existing profile. Registration
-continues to create only a CareerTrack account; profile creation happens on login.
+Successful creation saves the store name and a creation flag in MongoDB before
+returning the registration token. If the API fails, the owner can retry registration
+with the same email and password to complete the pending profile. Duplicate completed
+registrations are rejected. HTTP 409 requires the administrator to link the existing
+profile. Login requires only email and password and never calls the jeweller API.
 
 The saved flag prevents repeat requests after a confirmed success. Exactly-once
 creation across multiple backend instances or a timeout after remote creation
@@ -93,7 +94,7 @@ that support.
 Run backend checks with `mvn test`, frontend checks with `npm run build`, and the
 deployment checks with `API_URL` set to the backend `/api` URL and
 `CHECK_AUTH_ERRORS=true` using `node scripts/smoke-test.mjs`. The smoke check creates
-a clearly named test jeweller profile when logging in with a new test account.
+a clearly named test jeweller profile when registering a new test account.
 
 ## Resume Line
 

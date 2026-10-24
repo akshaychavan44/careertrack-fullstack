@@ -31,7 +31,7 @@ public class JewelerProfileService {
     this.client = builder.requestFactory(factory).build();
   }
 
-  // Re-read within the lock so simultaneous logins in this instance share the saved result.
+  // Re-read within the lock so registration retries share the saved result.
   public synchronized void ensureProfile(User authenticatedUser, String storeName) {
     User user = userRepository.findById(authenticatedUser.getId()).orElseThrow();
     if (user.isJewelerProfileCreated()) return;
@@ -49,9 +49,9 @@ public class JewelerProfileService {
       if (exception.getStatusCode().value() == 409) {
         throw new JewelerProfileException("A jeweller profile already exists for this email. Please contact the administrator to link it.");
       }
-      throw new JewelerProfileException("Could not create your jeweller profile. Please try logging in again shortly.");
+      throw new JewelerProfileException("Could not create your jeweller profile. Please try registering again shortly with the same email and password.");
     } catch (RestClientException exception) {
-      throw new JewelerProfileException("Could not confirm jeweller profile creation. Please try logging in again shortly.");
+      throw new JewelerProfileException("Could not confirm jeweller profile creation. Please try registering again shortly with the same email and password.");
     }
     user.setStoreName(storeName);
     user.setJewelerProfileCreated(true);
