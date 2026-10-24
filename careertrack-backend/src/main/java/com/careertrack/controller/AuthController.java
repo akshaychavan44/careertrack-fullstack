@@ -56,7 +56,7 @@ public class AuthController {
       user.setStoreName(request.getStoreName().trim());
       userRepository.save(user);
     }
-    jewelerProfileService.ensureProfile(user, user.getStoreName());
+    jewelerProfileService.ensureProfile(user, user.getStoreName(), request.getPassword());
 
     var userDetails = userDetailsService.loadUserByUsername(user.getEmail());
     String token = jwtService.generateToken(userDetails);

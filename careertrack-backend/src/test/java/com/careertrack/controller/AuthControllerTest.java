@@ -73,13 +73,13 @@ class AuthControllerTest {
     order.verify(repository).save(saved.capture());
     assertEquals("Test Jewellers", saved.getValue().getStoreName());
     assertEquals("hashed-password", saved.getValue().getPassword());
-    order.verify(profiles).ensureProfile(saved.getValue(), "Test Jewellers");
+    order.verify(profiles).ensureProfile(saved.getValue(), "Test Jewellers", "password");
     order.verify(jwt).generateToken(any());
   }
 
   @Test void failedRegistrationCanBeRetriedWithSameCredentials() throws Exception {
     doThrow(new JewelerProfileException("Please retry registration.")).doNothing()
-        .when(profiles).ensureProfile(any(User.class), eq("Test Jewellers"));
+        .when(profiles).ensureProfile(any(User.class), eq("Test Jewellers"), eq("password"));
     mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER))
         .andExpect(status().isBadGateway()).andExpect(jsonPath("$.message").value("Please retry registration."));
     verify(jwt, never()).generateToken(any());
@@ -90,7 +90,7 @@ class AuthControllerTest {
     mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER))
         .andExpect(status().isOk()).andExpect(jsonPath("$.token").value("test-token"));
     verify(repository, times(1)).save(any());
-    verify(profiles, times(2)).ensureProfile(saved.getValue(), "Test Jewellers");
+    verify(profiles, times(2)).ensureProfile(saved.getValue(), "Test Jewellers", "password");
   }
 
   @Test void duplicateRegistrationDoesNotCreateAnotherProfile() throws Exception {

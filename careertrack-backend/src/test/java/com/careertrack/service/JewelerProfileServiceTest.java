@@ -22,10 +22,12 @@ class JewelerProfileServiceTest {
   private MockRestServiceServer server;
   private JewelerProfileService service;
   private static final String URL = "https://example.com/api/v1/jewelers";
+  private static final String PASSWORD = "Chosen Password123! ";
 
   @BeforeEach void setup() {
     user.setId("user-123");
     user.setEmail("owner@example.com");
+    user.setPassword("hashed-password");
     when(repository.findById(user.getId())).thenReturn(Optional.of(user));
     // The service sets its timeout factory before build; bind the mock at build time.
     var builder = RestClient.builder();
@@ -37,16 +39,17 @@ class JewelerProfileServiceTest {
     service = new JewelerProfileService(repository, wrapped, URL, "test-secret");
   }
 
-  @Test void createsProfileWithOnlyStoreAndEmailAndSkipsRepeatLogin() {
+  @Test void sendsRegistrationPasswordWithStoreAndEmailAndSkipsRepeatCreation() {
     server.expect(requestTo(URL)).andExpect(method(HttpMethod.POST))
         .andExpect(header("Authorization", "Bearer test-secret"))
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-        .andExpect(content().json("{\"storeName\":\"Example Jewellers\",\"email\":\"owner@example.com\"}", true))
+        .andExpect(content().json("{\"storeName\":\"Example Jewellers\",\"email\":\"owner@example.com\",\"password\":\"Chosen Password123! \"}", true))
         .andRespond(withSuccess("{\"id\":\"profile-123\"}", MediaType.APPLICATION_JSON));
-    service.ensureProfile(user, "Example Jewellers");
-    service.ensureProfile(user, "Example Jewellers");
+    service.ensureProfile(user, "Example Jewellers", PASSWORD);
+    service.ensureProfile(user, "Example Jewellers", PASSWORD);
     assertTrue(user.isJewelerProfileCreated());
     assertEquals("Example Jewellers", user.getStoreName());
+    assertEquals("hashed-password", user.getPassword());
     verify(repository, times(1)).save(user);
     server.verify();
   }
@@ -54,17 +57,17 @@ class JewelerProfileServiceTest {
   @Test void failureDoesNotMarkCreatedAndAllowsRetry() {
     server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.UNAUTHORIZED));
     server.expect(requestTo(URL)).andRespond(withSuccess());
-    assertThrows(JewelerProfileException.class, () -> service.ensureProfile(user, "Test Store"));
+    assertThrows(JewelerProfileException.class, () -> service.ensureProfile(user, "Test Store", PASSWORD));
     assertFalse(user.isJewelerProfileCreated());
     verify(repository, never()).save(any());
-    service.ensureProfile(user, "Test Store");
+    service.ensureProfile(user, "Test Store", PASSWORD);
     assertTrue(user.isJewelerProfileCreated());
     server.verify();
   }
 
   @Test void conflictDoesNotAssumeProfileOwnership() {
     server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.CONFLICT));
-    var error = assertThrows(JewelerProfileException.class, () -> service.ensureProfile(user, "Test Store"));
+    var error = assertThrows(JewelerProfileException.class, () -> service.ensureProfile(user, "Test Store", PASSWORD));
     assertTrue(error.getMessage().contains("already exists"));
     assertFalse(user.isJewelerProfileCreated());
     verify(repository, never()).save(any());
@@ -73,7 +76,7 @@ class JewelerProfileServiceTest {
 
   @Test void missingKeyDoesNotSendRequest() {
     service = new JewelerProfileService(repository, RestClient.builder(), URL, "");
-    assertThrows(JewelerProfileException.class, () -> service.ensureProfile(user, "Test Store"));
+    assertThrows(JewelerProfileException.class, () -> service.ensureProfile(user, "Test Store", PASSWORD));
     verify(repository, never()).save(any());
   }
 }

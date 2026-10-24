@@ -32,7 +32,7 @@ public class JewelerProfileService {
   }
 
   // Re-read within the lock so registration retries share the saved result.
-  public synchronized void ensureProfile(User authenticatedUser, String storeName) {
+  public synchronized void ensureProfile(User authenticatedUser, String storeName, String password) {
     User user = userRepository.findById(authenticatedUser.getId()).orElseThrow();
     if (user.isJewelerProfileCreated()) return;
     if (apiKey == null || apiKey.isBlank()) {
@@ -43,7 +43,7 @@ public class JewelerProfileService {
       client.post().uri(apiUrl)
           .contentType(MediaType.APPLICATION_JSON)
           .headers(headers -> headers.setBearerAuth(apiKey))
-          .body(Map.of("storeName", storeName, "email", user.getEmail()))
+          .body(Map.of("storeName", storeName, "email", user.getEmail(), "password", password))
           .retrieve().toBodilessEntity();
     } catch (RestClientResponseException exception) {
       if (exception.getStatusCode().value() == 409) {

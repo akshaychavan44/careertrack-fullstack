@@ -73,8 +73,10 @@ http://localhost:5173
 
 ## Jeweller profile integration
 
-The registration form requires a store name. When a new user registers, the backend posts only
-`storeName` and the new user's `email` to the jeweller API. Configure
+The registration form requires a store name. When a new user registers, the backend posts
+`storeName`, `email`, and the submitted `password` to the jeweller API over HTTPS.
+CareerTrack stores only the encoded password; the submitted password is used for this
+request without logging or saving it in plaintext. Configure
 `JEWELER_API_KEY` as a secret environment variable on the backend hosting service
 (Render), then redeploy. Never put the key in a `VITE_` variable or commit it.
 `JEWELER_API_URL` optionally overrides the default endpoint:
@@ -85,6 +87,9 @@ returning the registration token. If the API fails, the owner can retry registra
 with the same email and password to complete the pending profile. Duplicate completed
 registrations are rejected. HTTP 409 requires the administrator to link the existing
 profile. Login requires only email and password and never calls the jeweller API.
+
+Profiles created before password forwarding was enabled are not updated automatically;
+those accounts need a password reset in the jewellery software.
 
 The saved flag prevents repeat requests after a confirmed success. Exactly-once
 creation across multiple backend instances or a timeout after remote creation
