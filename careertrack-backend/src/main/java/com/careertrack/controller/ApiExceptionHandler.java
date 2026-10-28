@@ -22,6 +22,11 @@ public class ApiExceptionHandler {
     return ResponseEntity.badRequest().body(Map.of("message", "Please complete all required fields with valid values."));
   }
 
+  @ExceptionHandler({org.springframework.dao.DuplicateKeyException.class, org.springframework.dao.IncorrectResultSizeDataAccessException.class})
+  public ResponseEntity<?> duplicateKey() {
+    return ResponseEntity.badRequest().body("Email already registered");
+  }
+
   @ExceptionHandler(org.springframework.dao.DataAccessException.class)
   public ResponseEntity<?> database() {
     return ResponseEntity.status(503).body(Map.of("message", "Database is unavailable. Please try again shortly."));

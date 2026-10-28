@@ -6,12 +6,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.careertrack.repository.JobApplicationRepository;
 import com.careertrack.repository.UserRepository;
 import com.careertrack.security.CustomUserDetailsService;
 import com.careertrack.security.JwtService;
 import com.careertrack.service.JewelerProfileService;
 import com.careertrack.service.JewelerProfileException;
 import com.careertrack.model.User;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +29,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 class AuthControllerTest {
   private final UserRepository repository = mock(UserRepository.class);
+  private final JobApplicationRepository applications = mock(JobApplicationRepository.class);
   private final AuthenticationManager manager = mock(AuthenticationManager.class);
   private final PasswordEncoder encoder = mock(PasswordEncoder.class);
   private final JewelerProfileService profiles = mock(JewelerProfileService.class);
@@ -41,12 +45,15 @@ class AuthControllerTest {
     when(jwt.generateToken(details)).thenReturn("test-token");
     when(encoder.encode("password")).thenReturn("hashed-password");
     when(repository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+    when(repository.findFirstByEmail("test@example.com")).thenReturn(Optional.empty());
+    when(repository.findAllByEmail("test@example.com")).thenReturn(Collections.emptyList());
+    when(applications.countByUserId(anyString())).thenReturn(0L);
     when(repository.save(any(User.class))).thenAnswer(invocation -> {
       User user = invocation.getArgument(0);
       user.setId("user-123");
       return user;
     });
-    var controller = new AuthController(repository, encoder, manager, detailsService, jwt, profiles);
+    var controller = new AuthController(repository, applications, encoder, manager, detailsService, jwt, profiles);
     mvc = MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(new ApiExceptionHandler()).build();
   }
 
@@ -88,6 +95,8 @@ class AuthControllerTest {
     var saved = ArgumentCaptor.forClass(User.class);
     verify(repository).save(saved.capture());
     when(repository.findByEmail("test@example.com")).thenReturn(Optional.of(saved.getValue()));
+    when(repository.findFirstByEmail("test@example.com")).thenReturn(Optional.of(saved.getValue()));
+    when(repository.findAllByEmail("test@example.com")).thenReturn(List.of(saved.getValue()));
     when(encoder.matches("password", "hashed-password")).thenReturn(true);
     mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER))
         .andExpect(status().isOk()).andExpect(jsonPath("$.token").value("test-token"));
@@ -99,6 +108,9 @@ class AuthControllerTest {
     User user = existingUser();
     user.setJewelerProfileCreated(true);
     when(repository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+    when(repository.findFirstByEmail("test@example.com")).thenReturn(Optional.of(user));
+    when(repository.findAllByEmail("test@example.com")).thenReturn(List.of(user));
+    when(applications.countByUserId("user-123")).thenReturn(1L);
     mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER))
         .andExpect(status().isBadRequest());
     verifyNoInteractions(profiles);
@@ -107,6 +119,9 @@ class AuthControllerTest {
 
   @Test void pendingRegistrationRequiresMatchingPasswordToRetry() throws Exception {
     when(repository.findByEmail("test@example.com")).thenReturn(Optional.of(existingUser()));
+    when(repository.findFirstByEmail("test@example.com")).thenReturn(Optional.of(existingUser()));
+    when(repository.findAllByEmail("test@example.com")).thenReturn(List.of(existingUser()));
+    when(applications.countByUserId("user-123")).thenReturn(1L);
     when(encoder.matches("password", "hashed-password")).thenReturn(false);
     mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER))
         .andExpect(status().isBadRequest());
@@ -115,6 +130,7 @@ class AuthControllerTest {
 
   @Test void loginWorksWithoutStoreNameAndDoesNotCallJewelerApi() throws Exception {
     when(repository.findByEmail("test@example.com")).thenReturn(Optional.of(existingUser()));
+    when(repository.findFirstByEmail("test@example.com")).thenReturn(Optional.of(existingUser()));
     mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(LOGIN))
         .andExpect(status().isOk()).andExpect(jsonPath("$.token").value("test-token"));
     verify(manager).authenticate(any());

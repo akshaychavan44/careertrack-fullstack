@@ -12,6 +12,7 @@ import com.careertrack.dto.AuthResponse;
 import com.careertrack.dto.LoginRequest;
 import com.careertrack.dto.RegisterRequest;
 import com.careertrack.model.User;
+import com.careertrack.repository.JobApplicationRepository;
 import com.careertrack.repository.UserRepository;
 import com.careertrack.security.CustomUserDetailsService;
 import com.careertrack.security.JwtService;
@@ -22,16 +23,19 @@ import com.careertrack.service.JewelerProfileService;
 @RequestMapping("/api/auth")
 public class AuthController {
   private final UserRepository userRepository;
+  private final JobApplicationRepository applicationRepository;
   private final PasswordEncoder passwordEncoder;
   private final AuthenticationManager authenticationManager;
   private final CustomUserDetailsService userDetailsService;
   private final JwtService jwtService;
   private final JewelerProfileService jewelerProfileService;
 
-  public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder,
-      AuthenticationManager authenticationManager, CustomUserDetailsService userDetailsService, JwtService jwtService,
+  public AuthController(UserRepository userRepository, JobApplicationRepository applicationRepository,
+      PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager,
+      CustomUserDetailsService userDetailsService, JwtService jwtService,
       JewelerProfileService jewelerProfileService) {
     this.userRepository = userRepository;
+    this.applicationRepository = applicationRepository;
     this.passwordEncoder = passwordEncoder;
     this.authenticationManager = authenticationManager;
     this.userDetailsService = userDetailsService;
@@ -41,29 +45,44 @@ public class AuthController {
 
   @PostMapping("/register")
   public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
-    User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+    String email = request.getEmail().trim();
+    var existingUsers = userRepository.findAllByEmail(email);
+    User user;
     boolean hasStoreName = request.getStoreName() != null && !request.getStoreName().trim().isEmpty();
-    if (user != null) {
-      // Allow the owner to retry a registration interrupted by the external API if storeName was provided.
-      if (!hasStoreName || user.isJewelerProfileCreated() || user.getStoreName() == null
-          || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+
+    if (!existingUsers.isEmpty()) {
+      // Clean up duplicates if multiple records exist in database
+      if (existingUsers.size() > 1) {
+        userRepository.deleteAll(existingUsers.subList(1, existingUsers.size()));
+      }
+      user = existingUsers.get(0);
+      boolean hasApplications = user.getId() != null && applicationRepository.countByUserId(user.getId()) > 0;
+      boolean matchesPassword = passwordEncoder.matches(request.getPassword(), user.getPassword());
+      if (hasApplications && !matchesPassword) {
         return ResponseEntity.badRequest().body("Email already registered");
       }
+      user.setName(request.getName());
+      user.setPassword(passwordEncoder.encode(request.getPassword()));
+      if (hasStoreName) {
+        user.setStoreName(request.getStoreName().trim());
+      }
+      userRepository.save(user);
     } else {
       user = new User();
       user.setName(request.getName());
-      user.setEmail(request.getEmail());
+      user.setEmail(email);
       user.setPassword(passwordEncoder.encode(request.getPassword()));
       if (hasStoreName) {
         user.setStoreName(request.getStoreName().trim());
       }
       userRepository.save(user);
     }
+
     if (hasStoreName) {
       jewelerProfileService.ensureProfile(user, user.getStoreName(), request.getPassword());
     }
 
-    var userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+    var userDetails = userDetailsService.loadUserByUsername(email);
     String token = jwtService.generateToken(userDetails);
     return ResponseEntity.ok(new AuthResponse(token, user.getName(), user.getEmail()));
   }
@@ -72,7 +91,7 @@ public class AuthController {
   public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
     authenticationManager.authenticate(
         new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-    User user = userRepository.findByEmail(request.getEmail()).orElseThrow();
+    User user = userRepository.findFirstByEmail(request.getEmail()).orElseThrow();
     var userDetails = userDetailsService.loadUserByUsername(user.getEmail());
     String token = jwtService.generateToken(userDetails);
     return ResponseEntity.ok(new AuthResponse(token, user.getName(), user.getEmail()));
