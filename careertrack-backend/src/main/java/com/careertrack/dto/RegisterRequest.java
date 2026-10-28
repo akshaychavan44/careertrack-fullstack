@@ -12,7 +12,6 @@ public class RegisterRequest {
   private String email;
   @NotBlank
   private String password;
-  @NotBlank
   @Size(max = 200)
   private String storeName;
 

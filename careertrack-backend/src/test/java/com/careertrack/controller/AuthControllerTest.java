@@ -58,11 +58,13 @@ class AuthControllerTest {
     verifyNoInteractions(profiles);
   }
 
-  @Test void registrationRequiresStoreName() throws Exception {
+  @Test void registrationWorksWithoutStoreName() throws Exception {
     mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
             .content("{\"name\":\"Test Owner\",\"email\":\"test@example.com\",\"password\":\"password\"}"))
-        .andExpect(status().isBadRequest());
-    verifyNoInteractions(repository, profiles);
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.token").value("test-token"));
+    verify(repository).save(any(User.class));
+    verifyNoInteractions(profiles);
   }
 
   @Test void registrationSavesStoreAndCreatesProfileBeforeIssuingToken() throws Exception {

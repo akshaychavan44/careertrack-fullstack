@@ -32,7 +32,7 @@ function App() {
     }
   });
   const [authMode, setAuthMode] = useState('login');
-  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', storeName: '' });
+  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
   const [applications, setApplications] = useState([]);
   const [interviews, setInterviews] = useState([]);
   const [stats, setStats] = useState({ total: 0, applied: 0, interview: 0, offer: 0, rejected: 0 });
@@ -41,6 +41,7 @@ function App() {
   const [editingId, setEditingId] = useState(null);
   const [filter, setFilter] = useState('ALL');
   const [message, setMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -74,16 +75,22 @@ function App() {
   async function handleAuth(event) {
     event.preventDefault();
     setMessage('');
+    setSuccessMessage('');
     setBusy(true);
     try {
-      const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
-      const payload = authMode === 'login'
-        ? { email: authForm.email.trim(), password: authForm.password }
-        : { name: authForm.name.trim(), email: authForm.email.trim(), password: authForm.password, storeName: authForm.storeName.trim() };
-      const response = await api.post(endpoint, payload);
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify({ name: response.data.name, email: response.data.email }));
-      setUser({ name: response.data.name, email: response.data.email });
+      if (authMode === 'login') {
+        const payload = { email: authForm.email.trim(), password: authForm.password };
+        const response = await api.post('/auth/login', payload);
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify({ name: response.data.name, email: response.data.email }));
+        setUser({ name: response.data.name, email: response.data.email });
+      } else {
+        const payload = { name: authForm.name.trim(), email: authForm.email.trim(), password: authForm.password };
+        await api.post('/auth/register', payload);
+        setAuthMode('login');
+        setAuthForm((prev) => ({ ...prev, password: '' }));
+        setSuccessMessage('Registration successful! Please log in with your credentials.');
+      }
     } catch (error) {
       setMessage(errorMessage(error));
     } finally {
@@ -165,10 +172,10 @@ function App() {
           <p className="text-secondary">Track job applications, interviews, and offers in one place.</p>
 
           <div className="btn-group w-100 mb-3">
-            <button className={`btn ${authMode === 'login' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => setAuthMode('login')}>
+            <button className={`btn ${authMode === 'login' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => { setAuthMode('login'); setMessage(''); setSuccessMessage(''); }}>
               Login
             </button>
-            <button className={`btn ${authMode === 'register' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => setAuthMode('register')}>
+            <button className={`btn ${authMode === 'register' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => { setAuthMode('register'); setMessage(''); setSuccessMessage(''); }}>
               Register
             </button>
           </div>
@@ -178,21 +185,12 @@ function App() {
               <input className="form-control mb-3" placeholder="Name" aria-label="Name" required value={authForm.name}
                 onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })} />
             )}
-            {authMode === 'register' && (
-              <div className="mb-3">
-                <label className="form-label" htmlFor="storeName">Store Name</label>
-                <input id="storeName" className="form-control" placeholder="Your jewellery store" required maxLength={200}
-                  value={authForm.storeName} pattern=".*\S.*" autoComplete="organization"
-                  onChange={(e) => setAuthForm({ ...authForm, storeName: e.target.value })}
-                  aria-describedby="storeNameHelp" />
-                <div id="storeNameHelp" className="form-text">Creating your account also creates your jeweller profile using your store name and email.</div>
-              </div>
-            )}
             <input className="form-control mb-3" type="email" placeholder="Email" aria-label="Email" required value={authForm.email}
               onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} />
             <input className="form-control mb-3" type="password" placeholder="Password" aria-label="Password" required value={authForm.password}
               onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} />
             {message && <div className="alert alert-danger py-2">{message}</div>}
+            {successMessage && <div className="alert alert-success py-2">{successMessage}</div>}
             <button className="btn btn-primary w-100" type="submit" disabled={busy}>
               {busy ? 'Please wait…' : authMode === 'login' ? 'Login' : 'Create Account'}
             </button>

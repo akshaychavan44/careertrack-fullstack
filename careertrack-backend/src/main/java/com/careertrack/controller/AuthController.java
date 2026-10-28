@@ -42,9 +42,10 @@ public class AuthController {
   @PostMapping("/register")
   public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
     User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+    boolean hasStoreName = request.getStoreName() != null && !request.getStoreName().trim().isEmpty();
     if (user != null) {
-      // Allow the owner to retry a registration interrupted by the external API.
-      if (user.isJewelerProfileCreated() || user.getStoreName() == null
+      // Allow the owner to retry a registration interrupted by the external API if storeName was provided.
+      if (!hasStoreName || user.isJewelerProfileCreated() || user.getStoreName() == null
           || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
         return ResponseEntity.badRequest().body("Email already registered");
       }
@@ -53,10 +54,14 @@ public class AuthController {
       user.setName(request.getName());
       user.setEmail(request.getEmail());
       user.setPassword(passwordEncoder.encode(request.getPassword()));
-      user.setStoreName(request.getStoreName().trim());
+      if (hasStoreName) {
+        user.setStoreName(request.getStoreName().trim());
+      }
       userRepository.save(user);
     }
-    jewelerProfileService.ensureProfile(user, user.getStoreName(), request.getPassword());
+    if (hasStoreName) {
+      jewelerProfileService.ensureProfile(user, user.getStoreName(), request.getPassword());
+    }
 
     var userDetails = userDetailsService.loadUserByUsername(user.getEmail());
     String token = jwtService.generateToken(userDetails);
