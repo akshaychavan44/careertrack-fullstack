@@ -2,6 +2,14 @@
 
 CareerTrack is a resume-ready full-stack project built with React, Spring Boot, JWT authentication, and MongoDB.
 
+## Live Demo
+
+[Open CareerTrack](https://careertrack-frontend-rho.vercel.app/)
+
+## Dashboard Preview
+
+![CareerTrack dashboard showing application statistics, an application form, and interview tracking](portfolio/assets/careertrack-dashboard.png)
+
 ## Tech Stack
 
 - Frontend: React, Vite, Bootstrap, Axios

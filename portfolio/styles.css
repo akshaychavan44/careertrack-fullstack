@@ -229,6 +229,25 @@ h3 {
   padding: 22px;
 }
 
+.project-preview {
+  display: block;
+  margin-bottom: 18px;
+}
+
+.project-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #dde5ee;
+  border-radius: 6px;
+}
+
+.project-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
 .project-card p {
   color: #526173;
   line-height: 1.65;
