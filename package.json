@@ -5,6 +5,12 @@
   "scripts": {
     "dev": "npm --prefix careertrack-frontend run dev",
     "build": "npm --prefix careertrack-frontend run build",
-    "preview": "npm --prefix careertrack-frontend run preview"
+    "preview": "npm --prefix careertrack-frontend run preview",
+    "test:backend": "mvn -f careertrack-backend/pom.xml test",
+    "test:e2e": "node scripts/e2e-test.mjs"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.3.0",
+    "playwright": "^1.64.1"
   }
 }

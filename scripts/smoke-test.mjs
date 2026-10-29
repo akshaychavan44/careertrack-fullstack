@@ -10,7 +10,7 @@ let token;
 async function request(path, method = 'GET', body, expected = 200, authenticated = true) {
   const response = await fetch(base + path, {
     method,
-    headers: { 'Content-Type': 'application/json', Origin: 'https://careertrack-frontend-rho.vercel.app',
+    headers: { 'Content-Type': 'application/json', Origin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
       ...(authenticated && token ? { Authorization: `Bearer ${token}` } : {}) },
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(60000)
@@ -20,7 +20,8 @@ async function request(path, method = 'GET', body, expected = 200, authenticated
   console.log(`PASS ${method} ${path} (${response.status})`);
   return text ? JSON.parse(text) : null;
 }
-credentials.storeName ||= 'CareerTrack Registration Test Jewellers';
+// External profile creation is opt-in; local smoke tests need no third-party service.
+if (process.env.TEST_STORE_NAME) credentials.storeName ||= process.env.TEST_STORE_NAME;
 if (!process.env.TEST_ACCOUNT_FILE) {
   token = (await request('/auth/register', 'POST', credentials, 200, false)).token;
 }

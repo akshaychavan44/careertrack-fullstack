@@ -17,7 +17,9 @@ public class ApiExceptionHandler {
     return ResponseEntity.status(401).body(Map.of("message", "Email or password is incorrect."));
   }
 
-  @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+  @ExceptionHandler({org.springframework.web.bind.MethodArgumentNotValidException.class,
+      org.springframework.http.converter.HttpMessageNotReadableException.class,
+      org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
   public ResponseEntity<?> validation() {
     return ResponseEntity.badRequest().body(Map.of("message", "Please complete all required fields with valid values."));
   }

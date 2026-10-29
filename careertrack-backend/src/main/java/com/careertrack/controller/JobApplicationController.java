@@ -17,16 +17,21 @@ import com.careertrack.model.ApplicationStatus;
 import com.careertrack.model.JobApplication;
 import com.careertrack.repository.JobApplicationRepository;
 import com.careertrack.repository.UserRepository;
+import com.careertrack.repository.InterviewRepository;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/applications")
 public class JobApplicationController {
   private final JobApplicationRepository applicationRepository;
   private final UserRepository userRepository;
+  private final InterviewRepository interviewRepository;
 
-  public JobApplicationController(JobApplicationRepository applicationRepository, UserRepository userRepository) {
+  public JobApplicationController(JobApplicationRepository applicationRepository, UserRepository userRepository,
+      InterviewRepository interviewRepository) {
     this.applicationRepository = applicationRepository;
     this.userRepository = userRepository;
+    this.interviewRepository = interviewRepository;
   }
 
   @GetMapping
@@ -35,7 +40,7 @@ public class JobApplicationController {
   }
 
   @PostMapping
-  public JobApplication createApplication(@RequestBody JobApplicationRequest request, Authentication authentication) {
+  public JobApplication createApplication(@Valid @RequestBody JobApplicationRequest request, Authentication authentication) {
     JobApplication application = new JobApplication();
     applyRequest(application, request);
     application.setUserId(currentUserId(authentication));
@@ -44,7 +49,7 @@ public class JobApplicationController {
 
   @PutMapping("/{id}")
   public ResponseEntity<JobApplication> updateApplication(@PathVariable String id,
-      @RequestBody JobApplicationRequest request, Authentication authentication) {
+      @Valid @RequestBody JobApplicationRequest request, Authentication authentication) {
     String userId = currentUserId(authentication);
     return applicationRepository.findById(id)
         .filter(app -> app.getUserId().equals(userId))
@@ -61,6 +66,7 @@ public class JobApplicationController {
     return applicationRepository.findById(id)
         .filter(app -> app.getUserId().equals(userId))
         .map(app -> {
+          interviewRepository.deleteAll(interviewRepository.findByUserIdAndApplicationId(userId, id));
           applicationRepository.delete(app);
           return ResponseEntity.noContent().<Void>build();
         })

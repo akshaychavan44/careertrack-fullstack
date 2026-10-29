@@ -2,9 +2,12 @@ package com.careertrack.dto;
 
 import java.time.LocalDate;
 import com.careertrack.model.ApplicationStatus;
+import jakarta.validation.constraints.NotBlank;
 
 public class JobApplicationRequest {
+  @NotBlank
   private String companyName;
+  @NotBlank
   private String jobTitle;
   private String location;
   private String jobType;

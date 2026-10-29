@@ -1,11 +1,17 @@
 package com.careertrack.dto;
 
 import java.time.LocalDateTime;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public class InterviewRequest {
+  @NotBlank
   private String applicationId;
+  @NotBlank
   private String round;
+  @NotNull
   private LocalDateTime interviewDate;
+  @NotBlank
   private String mode;
   private String notes;
 

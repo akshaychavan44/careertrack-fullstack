@@ -51,22 +51,14 @@ public class AuthController {
     boolean hasStoreName = request.getStoreName() != null && !request.getStoreName().trim().isEmpty();
 
     if (!existingUsers.isEmpty()) {
-      // Clean up duplicates if multiple records exist in database
-      if (existingUsers.size() > 1) {
-        userRepository.deleteAll(existingUsers.subList(1, existingUsers.size()));
-      }
       user = existingUsers.get(0);
-      boolean hasApplications = user.getId() != null && applicationRepository.countByUserId(user.getId()) > 0;
       boolean matchesPassword = passwordEncoder.matches(request.getPassword(), user.getPassword());
-      if (hasApplications && !matchesPassword) {
+      // Only a pending external profile may be retried, using the original credentials.
+      if (existingUsers.size() != 1 || !matchesPassword || user.isJewelerProfileCreated()
+          || !hasStoreName || user.getStoreName() == null
+          || !user.getStoreName().equals(request.getStoreName().trim())) {
         return ResponseEntity.badRequest().body("Email already registered");
       }
-      user.setName(request.getName());
-      user.setPassword(passwordEncoder.encode(request.getPassword()));
-      if (hasStoreName) {
-        user.setStoreName(request.getStoreName().trim());
-      }
-      userRepository.save(user);
     } else {
       user = new User();
       user.setName(request.getName());

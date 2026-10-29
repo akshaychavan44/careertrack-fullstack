@@ -15,16 +15,23 @@ import com.careertrack.dto.InterviewRequest;
 import com.careertrack.model.Interview;
 import com.careertrack.repository.InterviewRepository;
 import com.careertrack.repository.UserRepository;
+import com.careertrack.repository.JobApplicationRepository;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/interviews")
 public class InterviewController {
   private final InterviewRepository interviewRepository;
   private final UserRepository userRepository;
+  private final JobApplicationRepository applicationRepository;
 
-  public InterviewController(InterviewRepository interviewRepository, UserRepository userRepository) {
+  public InterviewController(InterviewRepository interviewRepository, UserRepository userRepository,
+      JobApplicationRepository applicationRepository) {
     this.interviewRepository = interviewRepository;
     this.userRepository = userRepository;
+    this.applicationRepository = applicationRepository;
   }
 
   @GetMapping
@@ -33,20 +40,23 @@ public class InterviewController {
   }
 
   @PostMapping
-  public Interview createInterview(@RequestBody InterviewRequest request, Authentication authentication) {
+  public Interview createInterview(@Valid @RequestBody InterviewRequest request, Authentication authentication) {
+    String userId = currentUserId(authentication);
+    requireOwnedApplication(request.getApplicationId(), userId);
     Interview interview = new Interview();
     applyRequest(interview, request);
-    interview.setUserId(currentUserId(authentication));
+    interview.setUserId(userId);
     return interviewRepository.save(interview);
   }
 
   @PutMapping("/{id}")
   public ResponseEntity<Interview> updateInterview(@PathVariable String id,
-      @RequestBody InterviewRequest request, Authentication authentication) {
+      @Valid @RequestBody InterviewRequest request, Authentication authentication) {
     String userId = currentUserId(authentication);
     return interviewRepository.findById(id)
         .filter(interview -> interview.getUserId().equals(userId))
         .map(interview -> {
+          requireOwnedApplication(request.getApplicationId(), userId);
           applyRequest(interview, request);
           return ResponseEntity.ok(interviewRepository.save(interview));
         })
@@ -63,6 +73,11 @@ public class InterviewController {
           return ResponseEntity.noContent().<Void>build();
         })
         .orElse(ResponseEntity.notFound().build());
+  }
+
+  private void requireOwnedApplication(String applicationId, String userId) {
+    applicationRepository.findById(applicationId).filter(app -> userId.equals(app.getUserId()))
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
   }
 
   private void applyRequest(Interview interview, InterviewRequest request) {

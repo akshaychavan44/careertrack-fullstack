@@ -88,6 +88,12 @@ h3 {
   color: #64748b;
 }
 
+.application-card > div,
+.interview-row > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .status {
   display: inline-block;
   border-radius: 999px;

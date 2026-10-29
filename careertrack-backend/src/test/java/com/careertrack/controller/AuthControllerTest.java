@@ -121,10 +121,34 @@ class AuthControllerTest {
     when(repository.findByEmail("test@example.com")).thenReturn(Optional.of(existingUser()));
     when(repository.findFirstByEmail("test@example.com")).thenReturn(Optional.of(existingUser()));
     when(repository.findAllByEmail("test@example.com")).thenReturn(List.of(existingUser()));
-    when(applications.countByUserId("user-123")).thenReturn(1L);
+    when(applications.countByUserId("user-123")).thenReturn(0L);
     when(encoder.matches("password", "hashed-password")).thenReturn(false);
     mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER))
         .andExpect(status().isBadRequest());
+    verifyNoInteractions(profiles);
+    verify(repository, never()).save(any());
+    verify(repository, never()).deleteAll(any());
+  }
+
+  @Test void completedRegistrationCannotBeReusedEvenWithCorrectPassword() throws Exception {
+    User user = existingUser();
+    user.setJewelerProfileCreated(true);
+    when(repository.findAllByEmail("test@example.com")).thenReturn(List.of(user));
+    when(encoder.matches("password", "hashed-password")).thenReturn(true);
+    mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER))
+        .andExpect(status().isBadRequest());
+    verify(repository, never()).save(any());
+    verifyNoInteractions(profiles);
+  }
+
+  @Test void basicAccountCannotBeOverwrittenByRegisteringAgain() throws Exception {
+    User user = existingUser();
+    user.setStoreName(null);
+    when(repository.findAllByEmail("test@example.com")).thenReturn(List.of(user));
+    when(encoder.matches("password", "hashed-password")).thenReturn(true);
+    mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER))
+        .andExpect(status().isBadRequest());
+    verify(repository, never()).save(any());
     verifyNoInteractions(profiles);
   }
 

@@ -21,6 +21,8 @@ CareerTrack is a resume-ready full-stack project built with React, Spring Boot, 
 
 ## How To Run
 
+Use Java 17 or later, Maven, and Node.js 22.12 or later.
+
 ### 1. Start MongoDB
 
 Make sure MongoDB is running locally:
@@ -71,9 +73,37 @@ Frontend URL:
 http://localhost:5173
 ```
 
+Development uses `http://localhost:8080/api` through `.env.development`.
+Production keeps the hosted backend default. To point development elsewhere,
+set `VITE_API_BASE_URL` in `.env.development.local` or in the shell environment.
+
+Set `APP_CORS_ALLOWED_ORIGIN` on the backend to the frontend origin. Multiple
+origins are comma-separated. Set `JWT_SECRET` to your deployment's signing secret.
+
+## Automated checks
+
+```bash
+npm ci
+npm --prefix careertrack-frontend ci
+mvn -f careertrack-backend/pom.xml clean package
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
+
+The end-to-end suite starts its own MongoDB, backend on port 18080, and frontend
+on port 15173. It verifies registration/login, CRUD, validation, ownership,
+dashboard statistics, interview cleanup, CORS, session handling, duplicate
+submissions, responsive layouts, and the portfolio menu. It stops its processes
+and discards its test database afterward. Its first run downloads a MongoDB binary.
+Use `QA_API_PORT` and `QA_UI_PORT` to select other test ports. Set
+`QA_BROWSER_CHANNEL=chrome` to use an installed Chrome instead of bundled Chromium.
+Java must be available through `JAVA_HOME` or `PATH`.
+
 ## Jeweller profile integration
 
-The registration form requires a store name. When a new user registers, the backend posts
+Basic CareerTrack registration needs a name, email, and password. API clients can
+optionally submit `storeName` to request a jeweller profile. In that case, the backend posts
 `storeName`, `email`, and the submitted `password` to the jeweller API over HTTPS.
 CareerTrack stores only the encoded password; the submitted password is used for this
 request without logging or saving it in plaintext. Configure
@@ -84,7 +114,7 @@ request without logging or saving it in plaintext. Configure
 
 Successful creation saves the store name and a creation flag in MongoDB before
 returning the registration token. If the API fails, the owner can retry registration
-with the same email and password to complete the pending profile. Duplicate completed
+with the same email, password, and store name to complete the pending profile. Duplicate completed
 registrations are rejected. HTTP 409 requires the administrator to link the existing
 profile. Login requires only email and password and never calls the jeweller API.
 
@@ -99,7 +129,12 @@ that support.
 Run backend checks with `mvn test`, frontend checks with `npm run build`, and the
 deployment checks with `API_URL` set to the backend `/api` URL and
 `CHECK_AUTH_ERRORS=true` using `node scripts/smoke-test.mjs`. The smoke check creates
-a clearly named test jeweller profile when registering a new test account.
+a basic test account when registering a new account. Set `TEST_STORE_NAME` only
+when you intend to test external jeweller profile creation as well. Use a test
+database for smoke tests; the account remains after its application/interview
+records are removed. The isolated end-to-end suite discards all its test data.
+Set `FRONTEND_ORIGIN` for smoke tests against a deployment; it defaults to
+`http://localhost:5173` and must match a configured backend CORS origin.
 
 ## Resume Line
 
